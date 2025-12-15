@@ -5,7 +5,10 @@ import Image from "next/image";
 
 /** Config */
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:8000"
+    : "https://green-carbon-api.onrender.com");
 
 /** Types */
 type Recommendation = {
@@ -14,6 +17,8 @@ type Recommendation = {
   expected_reduction_kg: number;
   tip: string;
 };
+
+// 백엔드 응답: 유형 3종 포함
 type MonthResult = {
   month: string;
   total_amt: number;
@@ -21,6 +26,9 @@ type MonthResult = {
   carbon_kg: number;
   carbon_score: number;
   recommendations: Recommendation[];
+  main_type: string;        // 예: "배달형", "카페형", "교통형", "혼합형", "기타형"
+  climate_type: string;     // 예: "저탄소", "보통", "고탄소(개선 필요)"
+  behavior_type?: string;   // 예: "소액 다빈", "고액 소빈", "균형" (옵션)
 };
 
 /** Helpers */
@@ -123,7 +131,7 @@ export default function Home() {
             </li>
             <li>
               <Image src="/leaf.jpg" alt="leaf" width={18} height={18} className="leafImgMini" />
-              탄소 배출량을 감소시킬 수 있는 소비 방법 추천
+              나의 탄소 점수는?
             </li>
             <li>
               <Image src="/leaf.jpg" alt="leaf" width={18} height={18} className="leafImgMini" />
@@ -132,6 +140,7 @@ export default function Home() {
           </ul>
         </div>
 
+        {/* 입력 카드 */}
         <form className="card" onSubmit={onSubmit}>
           <label
             className={`drop ${file ? "hasFile" : ""}`}
@@ -222,7 +231,26 @@ export default function Home() {
               <article key={r.month} className="resultCard">
                 <div className="resultTop">
                   <span className="badge">{r.month}</span>
-                  <span className="cluster">{r.cluster_name_hint}</span>
+
+                  {/* 유형 뱃지(메인/기후/행태) + 클러스터 힌트 */}
+                  <div className="pillRow">
+                    <span className="pill pill-main">{r.main_type}</span>
+                    <span
+                      className={`pill pill-climate ${
+                        r.climate_type.includes("고탄소")
+                          ? "danger"
+                          : r.climate_type.includes("저탄소")
+                          ? "good"
+                          : ""
+                      }`}
+                    >
+                      {r.climate_type}
+                    </span>
+                    {r.behavior_type && (
+                      <span className="pill pill-behavior">{r.behavior_type}</span>
+                    )}
+                    <span className="cluster">· {r.cluster_name_hint}</span>
+                  </div>
                 </div>
 
                 <div className="kpis">
@@ -367,7 +395,7 @@ export default function Home() {
           min-width: 180px;
           padding: 12px 18px;
           border-radius: 14px;
-          background: #2e7d32;        /* 진한 초록 */
+          background: #2e7d32;
           color: #ffffff;
           font-weight: 800;
           font-size: 15px;
@@ -405,12 +433,32 @@ export default function Home() {
 
         .resultCard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); display: grid; gap: 10px; }
         .resultTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+        /* 유형/클러스터 표기 */
+        .pillRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1px solid #c9efd2;
+          background: #e8f7eb;
+          color: #1f5f25;
+          font-size: 12.5px;
+          font-weight: 700;
+        }
+        .pill-climate.good { background: #e6f7ec; color: #1e6a2b; border-color: #bde6c7; }
+        .pill-climate.danger { background: #ffecec; color: #8a1f1f; border-color: #ffcdcd; }
+        .cluster { color: var(--muted); font-size: 13px; }
+
         .badge { background: var(--accent); color: var(--brand); border: 1px solid #c9efd2; padding: 6px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
-        .cluster { color: var(--muted); font-size: 13.5px; }
+
         .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .kpi { background: #f9fcfa; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
         .kpiLabel { color: var(--muted); font-size: 12px; }
         .kpiValue { display: block; font-weight: 800; margin-top: 2px; }
+
         .recos h3 { display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; font-size: 15px; }
         .recos ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
         .recoItem { display: grid; grid-template-columns: 88px 1fr; gap: 10px; border: 1px dashed #cfe8d5; background: #f4fbf6; border-radius: 12px; padding: 10px 12px; }
